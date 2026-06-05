@@ -1,0 +1,33 @@
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using UESAN.ExchangePro.CORE.Core.DTOs;
+using UESAN.ExchangePro.CORE.Core.Entities;
+
+[Route("api/[controller]")]
+[ApiController]
+[Authorize]
+public class DatosPagoController : ControllerBase
+{
+    private readonly IDatosPagoRepository _repo;
+    public DatosPagoController(IDatosPagoRepository repo) => _repo = repo;
+
+    [HttpPost]
+    public async Task<IActionResult> AgregarDatoPago([FromBody] CrearDatosPagoDTO dto) // <-- Cambiamos a DTO
+    {
+        var idUsuario = long.Parse(User.FindFirst("IdUsuario")?.Value ?? "0");
+
+        // Armamos la entidad limpia para la base de datos
+        var datos = new DatosPagoUsuario
+        {
+            IdUsuario = idUsuario,
+            Yape = dto.Yape,
+            Plin = dto.Plin,
+            IdBanco = dto.IdBanco,
+            NumeroCuenta = dto.NumeroCuenta,
+            Cci = dto.Cci
+        };
+
+        await _repo.Insert(datos);
+        return Ok(new { mensaje = "Método de pago agregado correctamente" });
+    }
+}

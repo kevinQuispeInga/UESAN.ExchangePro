@@ -1,0 +1,15 @@
+﻿using System;
+
+namespace UESAN.ExchangePro.CORE.Core.DTOs
+{
+    public class TransaccionResponseDTO
+    {
+        public long IdTransaccion { get; set; }
+        public long IdOferta { get; set; }
+        public long CompradorId { get; set; }
+        public long VendedorId { get; set; }
+        public decimal? MontoOperacion { get; set; }
+        public string? Estado { get; set; }
+        public DateTime? FechaInicio { get; set; }
+    }
+}
