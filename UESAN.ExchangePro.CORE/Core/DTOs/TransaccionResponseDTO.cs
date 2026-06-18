@@ -11,5 +11,6 @@ namespace UESAN.ExchangePro.CORE.Core.DTOs
         public decimal? MontoOperacion { get; set; }
         public string? Estado { get; set; }
         public DateTime? FechaInicio { get; set; }
+        public string? Codigo { get; set; }
     }
 }

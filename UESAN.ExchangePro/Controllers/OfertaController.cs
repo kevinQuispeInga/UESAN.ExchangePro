@@ -95,6 +95,7 @@ namespace UESAN.ExchangePro.API.Controllers
             var listaDTO = ofertas.Select(o => new OfertaResponseDTO
             {
                 IdOferta = o.IdOferta,
+                IdUsuario = o.IdUsuario,
                 NombreUsuario = o.IdUsuarioNavigation?.NombreCompleto ?? "Desconocido",
                 MontoOfertado = o.MontoOfertado,
                 MontoMinimo = o.MontoMinimo,
@@ -121,6 +122,7 @@ namespace UESAN.ExchangePro.API.Controllers
             var listaDTO = ofertas.Select(o => new OfertaResponseDTO
             {
                 IdOferta = o.IdOferta,
+                IdUsuario = o.IdUsuario,
                 NombreUsuario = o.IdUsuarioNavigation?.NombreCompleto ?? "Tú",
                 MontoOfertado = o.MontoOfertado,
                 MontoMinimo = o.MontoMinimo,

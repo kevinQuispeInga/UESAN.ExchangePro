@@ -43,14 +43,20 @@ namespace UESAN.ExchangePro.API.Controllers
             if (oferta.Estado != "ACTIVA") return BadRequest("La oferta no está disponible.");
             if (oferta.IdUsuario == idComprador) return BadRequest("No puedes tomar tu propia oferta.");
 
-            // 3. Crear el objeto transacción
+            // 2b. Validar que Monto esté entre MontoMinimo y MontoOfertado
+            if (dto.Monto < oferta.MontoMinimo)
+                return BadRequest($"El monto mínimo para esta oferta es {oferta.MontoMinimo}.");
+            if (dto.Monto > oferta.MontoOfertado)
+                return BadRequest($"El monto no puede exceder el monto ofertado ({oferta.MontoOfertado}).");
+
+            // 3. Crear el objeto transacción usando el monto proporcionado
             var transaccion = new Transacciones
             {
                 Codigo = "TRX-" + Guid.NewGuid().ToString().Substring(0, 8).ToUpper(),
                 IdOferta = oferta.IdOferta,
                 CompradorId = idComprador,
                 VendedorId = oferta.IdUsuario,
-                MontoOperacion = oferta.MontoOfertado,
+                MontoOperacion = dto.Monto,
                 Estado = "PENDIENTE",
                 FechaInicio = DateTime.UtcNow,
                 IdMetodoPago = dto.IdMetodoPago
@@ -86,7 +92,8 @@ namespace UESAN.ExchangePro.API.Controllers
                 VendedorId = t.VendedorId,
                 MontoOperacion = t.MontoOperacion,
                 Estado = t.Estado,
-                FechaInicio = t.FechaInicio
+                FechaInicio = t.FechaInicio,
+                Codigo = t.Codigo
             });
 
             return Ok(listaDTO);

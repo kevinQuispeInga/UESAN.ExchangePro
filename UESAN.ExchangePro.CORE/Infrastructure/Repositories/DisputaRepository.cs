@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using UESAN.ExchangePro.CORE.Core.Entities;
 using UESAN.ExchangePro.CORE.Core.Interfaces;
@@ -57,6 +59,18 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
                 throw new Exception(ex.InnerException?.Message ?? ex.Message);
             }
         }
+
+        // =========================================================================
+        // MÉTODO AGREGADO: Listar las disputas pendientes para la sala del VAR
+        // =========================================================================
+        public async Task<IEnumerable<Disputas>> GetDisputasPendientes()
+        {
+            // Retornamos todas las disputas que el sistema marcó como ABIERTAS
+            return await _context.Disputas
+                                 .Where(d => d.Estado == "ABIERTA")
+                                 .ToListAsync();
+        }
+
         public async Task<bool> ResolverDisputa(long idDisputa, long idAdmin, string decision, string observacion)
         {
             using var dbTransaction = await _context.Database.BeginTransactionAsync();
@@ -116,7 +130,7 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
                 else if (decision.ToUpper() == "A_FAVOR_VENDEDOR")
                 {
                     // El comprobante era falso o el dinero no llegó. 
-                    // Anulamos la venta y la oferta de Messi vuelve a la cancha.
+                    // Anulamos la venta y la oferta vuelve a la cancha.
                     transaccion.Estado = "CANCELADO";
                     oferta.Estado = "ACTIVA";
                 }

@@ -7,6 +7,7 @@ namespace UESAN.ExchangePro.CORE.Core.Interfaces
     {
         // El método para que un usuario abra un reclamo
         Task<bool> AbrirDisputa(Disputas disputa);
+        Task<IEnumerable<Disputas>> GetDisputasPendientes();
         Task<bool> ResolverDisputa(long idDisputa, long idAdmin, string decision, string observacion);
     }
 }

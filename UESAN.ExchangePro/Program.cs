@@ -10,6 +10,19 @@ using UESAN.ExchangePro.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// =========================================================================
+// CORREGIDO: CONFIGURACIÓN DE CORS PARA QUASAR (Puerto 9000)
+// =========================================================================
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowQuasar", policy =>
+    {
+        policy.WithOrigins("http://localhost:9000") // El puerto exacto de tu Quasar
+              .AllowAnyMethod()                     // Permite POST, GET, PUT, DELETE
+              .AllowAnyHeader();                    // Permite Content-Type, Authorization (JWT)
+    });
+});
+
 // 1. Configuración de Base de Datos
 builder.Services.AddDbContext<ExchangeProDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -22,6 +35,7 @@ builder.Services.AddTransient<IDatosPagoRepository, DatosPagoRepository>();
 builder.Services.AddTransient<IOfertaRepository, OfertaRepository>();
 builder.Services.AddTransient<ITransaccionRepository, TransaccionRepository>();
 builder.Services.AddTransient<IDisputaRepository, DisputaRepository>();
+
 // 3. Configuración de Seguridad JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -39,8 +53,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddControllers();
-
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapibuilder
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
@@ -51,7 +64,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
+
+// =========================================================================
+// CORREGIDO: ACTIVAR MIDDLEWARE DE CORS (Debe ir ANTES de Authentication)
+// =========================================================================
+app.UseCors("AllowQuasar");
 
 // MUY IMPORTANTE: UseAuthentication siempre debe ir ANTES de UseAuthorization
 app.UseAuthentication();

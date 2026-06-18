@@ -28,7 +28,7 @@ namespace UESAN.ExchangePro.API.Controllers
             }
             catch (Exception ex)
             {
-                // Esto captura el error real de la base de datos
+                
                 var mensaje = ex.Message;
                 if (ex.InnerException != null)
                     mensaje += " | Detalle: " + ex.InnerException.Message;

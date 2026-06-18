@@ -4,6 +4,7 @@
     {
 
         public long IdOferta { get; set; }
+        public long IdUsuario { get; set; }
         public string NombreUsuario { get; set; } = null!;
         public decimal MontoOfertado { get; set; }
         public decimal MontoMinimo { get; set; }

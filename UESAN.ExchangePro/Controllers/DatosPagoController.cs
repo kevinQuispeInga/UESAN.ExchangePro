@@ -12,11 +12,11 @@ public class DatosPagoController : ControllerBase
     public DatosPagoController(IDatosPagoRepository repo) => _repo = repo;
 
     [HttpPost]
-    public async Task<IActionResult> AgregarDatoPago([FromBody] CrearDatosPagoDTO dto) // <-- Cambiamos a DTO
+    public async Task<IActionResult> AgregarDatoPago([FromBody] CrearDatosPagoDTO dto) 
     {
         var idUsuario = long.Parse(User.FindFirst("IdUsuario")?.Value ?? "0");
 
-        // Armamos la entidad limpia para la base de datos
+        
         var datos = new DatosPagoUsuario
         {
             IdUsuario = idUsuario,
