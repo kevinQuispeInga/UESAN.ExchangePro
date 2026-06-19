@@ -35,6 +35,8 @@ builder.Services.AddTransient<IDatosPagoRepository, DatosPagoRepository>();
 builder.Services.AddTransient<IOfertaRepository, OfertaRepository>();
 builder.Services.AddTransient<ITransaccionRepository, TransaccionRepository>();
 builder.Services.AddTransient<IDisputaRepository, DisputaRepository>();
+builder.Services.AddTransient<IFeedbackRepository, FeedbackRepository>();
+builder.Services.AddTransient<IAdminService, AdminService>();
 
 // 3. Configuración de Seguridad JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

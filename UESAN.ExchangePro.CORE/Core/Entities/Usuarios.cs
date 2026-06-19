@@ -31,6 +31,8 @@ public partial class Usuarios
 
     public virtual ICollection<Disputas> Disputas { get; set; } = new List<Disputas>();
 
+    public virtual ICollection<Feedback> Feedback { get; set; } = new List<Feedback>();
+
     public virtual Roles IdRolNavigation { get; set; } = null!;
 
     public virtual ICollection<Notificaciones> Notificaciones { get; set; } = new List<Notificaciones>();

@@ -62,6 +62,8 @@ public partial class ExchangeProDbContext : DbContext
 
     public virtual DbSet<Wallets> Wallets { get; set; }
 
+    public virtual DbSet<Feedback> Feedback { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Auditoria>(entity =>
@@ -584,6 +586,42 @@ public partial class ExchangeProDbContext : DbContext
                 .HasForeignKey<Wallets>(d => d.IdUsuario)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__Wallets__IdUsuar__3A81B327");
+        });
+
+        modelBuilder.Entity<Feedback>(entity =>
+        {
+            entity.HasKey(e => e.IdFeedback);
+
+            entity.ToTable("Feedback");
+
+            entity.Property(e => e.Tipo)
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.Property(e => e.Titulo)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            entity.Property(e => e.Descripcion)
+                .HasMaxLength(2000)
+                .IsRequired();
+
+            entity.Property(e => e.Estado)
+                .HasMaxLength(20)
+                .HasDefaultValue("PENDIENTE");
+
+            entity.Property(e => e.RespuestaAdmin)
+                .HasMaxLength(2000);
+
+            entity.Property(e => e.FechaCreacion)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.HasOne(d => d.IdUsuarioNavigation)
+                .WithMany(p => p.Feedback)
+                .HasForeignKey(d => d.IdUsuario)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Feedback_Usuarios");
         });
 
         OnModelCreatingPartial(modelBuilder);
