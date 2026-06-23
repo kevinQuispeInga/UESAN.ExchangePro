@@ -32,6 +32,8 @@ namespace UESAN.ExchangePro.API.Controllers
             return Ok(new PerfilResponseDTO
             {
                 IdUsuario = usuario.IdUsuario,
+                Nombres = usuario.Nombres,
+                Apellidos = usuario.Apellidos,
                 NombreCompleto = usuario.NombreCompleto,
                 Correo = usuario.Correo,
                 Telefono = usuario.Telefono,
@@ -51,8 +53,11 @@ namespace UESAN.ExchangePro.API.Controllers
             if (usuario == null)
                 return NotFound(new { mensaje = "Usuario no encontrado." });
 
-            if (!string.IsNullOrWhiteSpace(dto.NombreCompleto))
-                usuario.NombreCompleto = dto.NombreCompleto;
+            if (!string.IsNullOrWhiteSpace(dto.Nombres))
+                usuario.Nombres = dto.Nombres;
+
+            if (!string.IsNullOrWhiteSpace(dto.Apellidos))
+                usuario.Apellidos = dto.Apellidos;
 
             if (!string.IsNullOrWhiteSpace(dto.Telefono))
                 usuario.Telefono = dto.Telefono;
@@ -76,6 +81,10 @@ namespace UESAN.ExchangePro.API.Controllers
             if (foto == null || foto.Length == 0)
                 return BadRequest(new { mensaje = "Debes seleccionar una imagen." });
 
+            var usuario = await _usuarioRepo.GetById(idUsuario);
+            if (usuario == null)
+                return NotFound(new { mensaje = "Usuario no encontrado." });
+
             string carpetaDestino = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "fotos");
 
             if (!Directory.Exists(carpetaDestino))
@@ -91,6 +100,10 @@ namespace UESAN.ExchangePro.API.Controllers
             }
 
             string rutaRelativa = $"/fotos/{nombreArchivo}";
+
+            usuario.FotoPerfil = rutaRelativa;
+            await _usuarioRepo.Update(usuario);
+
             return Ok(new { ruta = rutaRelativa });
         }
     }

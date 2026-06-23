@@ -39,18 +39,25 @@ namespace UESAN.ExchangePro.API.Controllers
             if (wallet == null)
                 return BadRequest("No tienes una billetera activa.");
 
-            // Buscamos el saldo de la moneda que quiere entregar
-            var saldoMoneda = wallet.WalletSaldos.FirstOrDefault(s => s.IdMoneda == dto.MonedaEntrega);
+            // Determinamos qué moneda revisar según el tipo de operación
+            //   VENTA: el usuario vende MonedaEntrega → debe tener saldo en MonedaEntrega
+            //   COMPRA: el usuario compra MonedaEntrega y paga con MonedaRecibe → debe tener saldo en MonedaRecibe
+            int monedaARevisar = dto.TipoOperacion == "COMPRA" ? dto.MonedaRecibe : dto.MonedaEntrega;
+            decimal montoRequerido = dto.TipoOperacion == "COMPRA"
+                ? dto.MontoOfertado * dto.TasaCambio
+                : dto.MontoOfertado;
+
+            var saldoMoneda = wallet.WalletSaldos.FirstOrDefault(s => s.IdMoneda == monedaARevisar);
 
             // Validamos que tenga fondos suficientes
-            if (saldoMoneda == null || saldoMoneda.SaldoDisponible < dto.MontoOfertado)
+            if (saldoMoneda == null || saldoMoneda.SaldoDisponible < montoRequerido)
             {
                 return BadRequest("FONDOS INSUFICIENTES: Necesitas recargar tu billetera antes de publicar esta oferta.");
             }
 
             // Aplicamos la retención restando del disponible y sumando al retenido
-            saldoMoneda.SaldoDisponible -= dto.MontoOfertado;
-            saldoMoneda.SaldoRetenido = (saldoMoneda.SaldoRetenido ?? 0) + dto.MontoOfertado;
+            saldoMoneda.SaldoDisponible -= montoRequerido;
+            saldoMoneda.SaldoRetenido = (saldoMoneda.SaldoRetenido ?? 0) + montoRequerido;
 
             // Guardamos los cambios en la billetera
             bool walletActualizada = await _walletRepo.Update(wallet);
@@ -78,8 +85,8 @@ namespace UESAN.ExchangePro.API.Controllers
                 return Ok(new { mensaje = "Oferta publicada exitosamente. Tus fondos han sido retenidos por seguridad." });
 
             // 5. ROLLBACK MANUAL: Si la oferta falló en guardarse, devolvemos el dinero al saldo disponible
-            saldoMoneda.SaldoDisponible += dto.MontoOfertado;
-            saldoMoneda.SaldoRetenido -= dto.MontoOfertado;
+            saldoMoneda.SaldoDisponible += montoRequerido;
+            saldoMoneda.SaldoRetenido -= montoRequerido;
             await _walletRepo.Update(wallet);
 
             return BadRequest("Error al intentar publicar la oferta. Tus fondos han sido devueltos a tu saldo disponible.");

@@ -12,10 +12,12 @@ namespace UESAN.ExchangePro.API.Controllers
     public class WalletController : ControllerBase
     {
         private readonly IWalletRepository _walletRepository;
+        private readonly IRecargaRepository _recargaRepository;
 
-        public WalletController(IWalletRepository walletRepository)
+        public WalletController(IWalletRepository walletRepository, IRecargaRepository recargaRepository)
         {
             _walletRepository = walletRepository;
+            _recargaRepository = recargaRepository;
         }
 
         [HttpGet("saldo")]
@@ -26,7 +28,6 @@ namespace UESAN.ExchangePro.API.Controllers
 
             if (wallet == null) return NotFound("Wallet no encontrada.");
 
-            // Devolvemos la lista de saldos por moneda
             var saldos = wallet.WalletSaldos.Select(s => new {
                 idMoneda = s.IdMoneda,
                 saldoDisponible = s.SaldoDisponible,
@@ -46,17 +47,14 @@ namespace UESAN.ExchangePro.API.Controllers
 
             if (wallet == null) return NotFound("Wallet no encontrada.");
 
-            // Buscamos si el usuario ya tiene un registro de saldo para esta moneda
             var saldoMoneda = wallet.WalletSaldos.FirstOrDefault(s => s.IdMoneda == dto.IdMoneda);
 
             if (saldoMoneda != null)
             {
-                // Si existe, le sumamos al SaldoDisponible
                 saldoMoneda.SaldoDisponible = (saldoMoneda.SaldoDisponible ?? 0) + dto.Monto;
             }
             else
             {
-                // Si es la primera vez que recarga esta moneda, creamos el registro
                 wallet.WalletSaldos.Add(new WalletSaldos
                 {
                     IdMoneda = dto.IdMoneda,
@@ -64,6 +62,28 @@ namespace UESAN.ExchangePro.API.Controllers
                     SaldoRetenido = 0
                 });
             }
+
+            var recarga = new Recargas
+            {
+                IdUsuario = idUsuario,
+                IdMoneda = dto.IdMoneda,
+                Monto = dto.Monto,
+                MetodoPago = dto.MetodoPago,
+                NumeroReferencia = dto.NumeroReferencia,
+                Estado = "COMPLETADA"
+            };
+
+            await _recargaRepository.Insert(recarga);
+
+            wallet.MovimientosWallet.Add(new MovimientosWallet
+            {
+                IdMoneda = dto.IdMoneda,
+                TipoOperacion = "RECARGA",
+                Monto = dto.Monto,
+                Resultado = "EXITOSO",
+                ReferenciaTipo = dto.MetodoPago,
+                ReferenciaId = recarga.IdRecarga
+            });
 
             bool actualizado = await _walletRepository.Update(wallet);
 

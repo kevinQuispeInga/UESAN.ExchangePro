@@ -43,7 +43,7 @@ namespace UESAN.ExchangePro.CORE.Core.Services
             var nuevoUsuario = new Usuarios
             {
                 IdRol = 1, // Rol USER por defecto
-                NombreCompleto = registroDTO.NombreCompleto,
+                NombreCompleto = $"{registroDTO.Nombres} {registroDTO.Apellidos}".Trim(),
                 Correo = registroDTO.Correo,
                 Telefono = registroDTO.Telefono,
                 DocumentoIdentidad = registroDTO.DocumentoIdentidad,
@@ -90,7 +90,10 @@ namespace UESAN.ExchangePro.CORE.Core.Services
             {
                 new Claim(JwtRegisteredClaimNames.Sub, usuario.Correo),
                 new Claim("IdUsuario", usuario.IdUsuario.ToString()),
-               new Claim("Rol", usuario.IdRol.ToString())
+                new Claim("Rol", usuario.IdRol.ToString()),
+                new Claim("Nombres", usuario.Nombres),
+                new Claim("Apellidos", usuario.Apellidos),
+                new Claim("NombreCompleto", $"{usuario.Nombres} {usuario.Apellidos}")
             };
 
             var token = new JwtSecurityToken(

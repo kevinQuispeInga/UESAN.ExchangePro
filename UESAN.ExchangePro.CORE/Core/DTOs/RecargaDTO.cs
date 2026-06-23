@@ -11,5 +11,10 @@ namespace UESAN.ExchangePro.CORE.Core.DTOs
         [Required(ErrorMessage = "La moneda es obligatoria.")]
         [Range(1, int.MaxValue, ErrorMessage = "Moneda inválida.")]
         public int IdMoneda { get; set; }
+
+        [Required(ErrorMessage = "El método de pago es obligatorio.")]
+        public string MetodoPago { get; set; } = null!;
+
+        public string? NumeroReferencia { get; set; }
     }
 }

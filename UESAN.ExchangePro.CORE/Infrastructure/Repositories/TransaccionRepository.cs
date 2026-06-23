@@ -191,12 +191,21 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
                     .ThenInclude(o => o.MonedaRecibeNavigation)
                 .FirstOrDefaultAsync(t => t.IdTransaccion == idTransaccion);
         }
-        // 8. Obtener los datos de pago reales del vendedor
+        // 8. Obtener los datos de pago reales del vendedor (fusiona todos sus registros)
         public async Task<DatosPagoUsuario?> GetDatosPagoVendedor(long idVendedor)
         {
-            return await _context.DatosPagoUsuario
-                // .Include(d => d.IdBancoNavigation) // Descomenta esto si necesitas info de la tabla Bancos
-                .FirstOrDefaultAsync(d => d.IdUsuario == idVendedor);
+            var registros = await _context.DatosPagoUsuario
+                .Where(d => d.IdUsuario == idVendedor)
+                .ToListAsync();
+            if (!registros.Any()) return null;
+            return new DatosPagoUsuario
+            {
+                IdUsuario = idVendedor,
+                Yape = registros.Select(r => r.Yape).FirstOrDefault(v => !string.IsNullOrEmpty(v)),
+                Plin = registros.Select(r => r.Plin).FirstOrDefault(v => !string.IsNullOrEmpty(v)),
+                NumeroCuenta = registros.Select(r => r.NumeroCuenta).FirstOrDefault(v => !string.IsNullOrEmpty(v)),
+                Cci = registros.Select(r => r.Cci).FirstOrDefault(v => !string.IsNullOrEmpty(v))
+            };
         }
         // 9. Marcar la transacción como PAGADA guardando el voucher
         public async Task<bool> MarcarComoPagado(long idTransaccion, long idComprador, string rutaComprobante)

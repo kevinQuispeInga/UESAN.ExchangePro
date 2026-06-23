@@ -43,6 +43,7 @@ builder.Services.AddTransient<IRetiroRepository, RetiroRepository>();
 builder.Services.AddTransient<IAdminService, AdminService>();
 builder.Services.AddTransient<IEmailService, EmailService>();
 builder.Services.AddTransient<INotificacionesRepository, NotificacionesRepository>();
+builder.Services.AddTransient<IRecargaRepository, RecargaRepository>();
 builder.Services.AddHttpClient<ITipoCambioService, TipoCambioService>();
 builder.Services.AddMemoryCache();
 

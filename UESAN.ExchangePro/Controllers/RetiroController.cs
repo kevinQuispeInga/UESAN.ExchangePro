@@ -45,6 +45,9 @@ namespace UESAN.ExchangePro.API.Controllers
                 IdUsuario = idUsuario,
                 IdMoneda = dto.IdMoneda,
                 Monto = dto.Monto,
+                MetodoRetiro = dto.MetodoRetiro,
+                CuentaDestino = dto.CuentaDestino,
+                Titular = dto.Titular,
                 Estado = "COMPLETADO",
                 FechaRetiro = DateTime.Now
             };
@@ -57,7 +60,7 @@ namespace UESAN.ExchangePro.API.Controllers
                 TipoOperacion = "RETIRO",
                 Monto = dto.Monto,
                 Resultado = "EXITOSO",
-                ReferenciaTipo = "RETIRO",
+                ReferenciaTipo = dto.MetodoRetiro,
                 ReferenciaId = retiro.IdRetiro
             });
 

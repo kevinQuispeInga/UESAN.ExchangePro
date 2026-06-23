@@ -9,7 +9,11 @@ public partial class Usuarios
 
     public int IdRol { get; set; }
 
-    public string NombreCompleto { get; set; } = null!;
+    public string Nombres { get; set; } = null!;
+
+    public string Apellidos { get; set; } = null!;
+
+    public string? NombreCompleto { get; set; }
 
     public string Correo { get; set; } = null!;
 

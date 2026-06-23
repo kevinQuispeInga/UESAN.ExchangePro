@@ -13,6 +13,10 @@ public partial class Recargas
 
     public decimal Monto { get; set; }
 
+    public string? MetodoPago { get; set; }
+
+    public string? NumeroReferencia { get; set; }
+
     public string? Estado { get; set; }
 
     public DateTime? FechaRecarga { get; set; }

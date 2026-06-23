@@ -4,9 +4,13 @@ namespace UESAN.ExchangePro.CORE.Core.DTOs
 {
     public class RegistroDTO
     {
-        [Required(ErrorMessage = "El nombre completo es obligatorio.")]
-        [StringLength(150, MinimumLength = 3, ErrorMessage = "El nombre debe tener entre 3 y 150 caracteres.")]
-        public string NombreCompleto { get; set; } = null!;
+        [Required(ErrorMessage = "Los nombres son obligatorios.")]
+        [StringLength(100, MinimumLength = 2, ErrorMessage = "Los nombres deben tener entre 2 y 100 caracteres.")]
+        public string Nombres { get; set; } = null!;
+
+        [Required(ErrorMessage = "Los apellidos son obligatorios.")]
+        [StringLength(100, MinimumLength = 2, ErrorMessage = "Los apellidos deben tener entre 2 y 100 caracteres.")]
+        public string Apellidos { get; set; } = null!;
 
         [Required(ErrorMessage = "El correo es obligatorio.")]
         [EmailAddress(ErrorMessage = "Formato de correo inválido.")]

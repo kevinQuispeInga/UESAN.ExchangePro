@@ -13,6 +13,12 @@ public partial class Retiros
 
     public decimal Monto { get; set; }
 
+    public string? MetodoRetiro { get; set; }
+
+    public string? CuentaDestino { get; set; }
+
+    public string? Titular { get; set; }
+
     public string? Estado { get; set; }
 
     public DateTime? FechaRetiro { get; set; }

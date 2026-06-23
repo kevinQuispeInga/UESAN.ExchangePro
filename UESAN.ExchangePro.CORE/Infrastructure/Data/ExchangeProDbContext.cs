@@ -351,6 +351,12 @@ public partial class ExchangeProDbContext : DbContext
             entity.Property(e => e.FechaRecarga)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+            entity.Property(e => e.MetodoPago)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.NumeroReferencia)
+                .HasMaxLength(200)
+                .IsUnicode(false);
             entity.Property(e => e.Monto).HasColumnType("decimal(18, 2)");
 
             entity.HasOne(d => d.IdMonedaNavigation).WithMany(p => p.Recargas)
@@ -435,6 +441,15 @@ public partial class ExchangeProDbContext : DbContext
             entity.Property(e => e.FechaRetiro)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+            entity.Property(e => e.MetodoRetiro)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.CuentaDestino)
+                .HasMaxLength(200)
+                .IsUnicode(false);
+            entity.Property(e => e.Titular)
+                .HasMaxLength(200)
+                .IsUnicode(false);
             entity.Property(e => e.Monto).HasColumnType("decimal(18, 2)");
 
             entity.HasOne(d => d.IdMonedaNavigation).WithMany(p => p.Retiros)
@@ -528,9 +543,15 @@ public partial class ExchangeProDbContext : DbContext
             entity.Property(e => e.FechaRegistro)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
-            entity.Property(e => e.NombreCompleto)
-                .HasMaxLength(150)
+            entity.Property(e => e.Nombres)
+                .HasMaxLength(100)
                 .IsUnicode(false);
+            entity.Property(e => e.Apellidos)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.NombreCompleto)
+                .HasComputedColumnSql("([Nombres]+' '+[Apellidos])")
+                .IsRequired(false);
             entity.Property(e => e.PasswordHash)
                 .HasMaxLength(255)
                 .IsUnicode(false);
