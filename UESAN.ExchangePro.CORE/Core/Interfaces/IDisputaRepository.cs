@@ -9,5 +9,7 @@ namespace UESAN.ExchangePro.CORE.Core.Interfaces
         Task<bool> AbrirDisputa(Disputas disputa);
         Task<IEnumerable<Disputas>> GetDisputasPendientes();
         Task<bool> ResolverDisputa(long idDisputa, long idAdmin, string decision, string observacion);
+        Task<Disputas?> GetById(long idDisputa);
+        Task<bool> InsertEvidencia(EvidenciasDisputa evidencia);
     }
 }

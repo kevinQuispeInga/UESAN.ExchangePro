@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using UESAN.ExchangePro.CORE.Core.DTOs;
 using UESAN.ExchangePro.CORE.Core.Entities;
 using UESAN.ExchangePro.CORE.Core.Interfaces;
 
@@ -13,10 +13,12 @@ namespace UESAN.ExchangePro.Controllers
     public class FeedbackController : ControllerBase
     {
         private readonly IFeedbackRepository _feedbackRepository;
+        private readonly INotificacionesRepository _notificacionesRepository;
 
-        public FeedbackController(IFeedbackRepository feedbackRepository)
+        public FeedbackController(IFeedbackRepository feedbackRepository, INotificacionesRepository notificacionesRepository)
         {
             _feedbackRepository = feedbackRepository;
+            _notificacionesRepository = notificacionesRepository;
         }
 
         [HttpPost]
@@ -42,7 +44,18 @@ namespace UESAN.ExchangePro.Controllers
 
                 bool result = await _feedbackRepository.Insert(feedback);
                 if (result)
+                {
+                    await _notificacionesRepository.Create(new Notificaciones
+                    {
+                        IdUsuario = null,
+                        Titulo = "Nuevo feedback recibido",
+                        Mensaje = $"Se ha recibido un feedback de tipo '{feedback.Tipo}'.",
+                        Fecha = DateTime.UtcNow,
+                        Leido = false
+                    });
+
                     return Ok(new { mensaje = "Feedback enviado correctamente. ¡Gracias por tu aporte!" });
+                }
 
                 return BadRequest(new { error = "No se pudo enviar el feedback" });
             }
@@ -62,7 +75,22 @@ namespace UESAN.ExchangePro.Controllers
                     return Forbid();
 
                 var feedbacks = await _feedbackRepository.GetAll();
-                return Ok(feedbacks);
+
+                var feedbackDTOs = feedbacks.Select(f => new FeedbackResponseDTO
+                {
+                    IdFeedback = f.IdFeedback,
+                    Tipo = f.Tipo,
+                    Titulo = f.Titulo,
+                    Descripcion = f.Descripcion,
+                    FechaCreacion = f.FechaCreacion,
+                    Estado = f.Estado,
+                    RespuestaAdmin = f.RespuestaAdmin,
+                    IdUsuario = f.IdUsuario,
+                    UsuarioNombre = f.IdUsuarioNavigation?.NombreCompleto ?? f.IdUsuarioNavigation?.Correo ?? "Usuario",
+                    UsuarioEmail = f.IdUsuarioNavigation?.Correo ?? string.Empty
+                }).ToList();
+
+                return Ok(feedbackDTOs);
             }
             catch (Exception ex)
             {
@@ -88,7 +116,18 @@ namespace UESAN.ExchangePro.Controllers
 
                 bool result = await _feedbackRepository.Update(feedback);
                 if (result)
+                {
+                    await _notificacionesRepository.Create(new Notificaciones
+                    {
+                        IdUsuario = feedback.IdUsuario,
+                        Titulo = "Tu feedback ha sido respondido",
+                        Mensaje = $"El administrador respondió tu feedback: {responderDTO.Respuesta}",
+                        Fecha = DateTime.UtcNow,
+                        Leido = false
+                    });
+
                     return Ok(new { mensaje = "Feedback respondido correctamente" });
+                }
 
                 return BadRequest(new { error = "No se pudo responder el feedback" });
             }

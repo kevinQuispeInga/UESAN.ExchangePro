@@ -12,5 +12,6 @@ namespace UESAN.ExchangePro.CORE.Core.DTOs
         public string? Estado { get; set; }
         public DateTime? FechaInicio { get; set; }
         public string? Codigo { get; set; }
+        public string? RutaComprobante { get; set; }
     }
 }

@@ -26,7 +26,9 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
         {
             return await _context.Ofertas
                 .Where(o => o.Estado == "ACTIVA")
-                .Include(o => o.IdUsuarioNavigation) // Necesario para mostrar el nombre del usuario
+                .Include(o => o.IdUsuarioNavigation)
+                .Include(o => o.MonedaEntregaNavigation)
+                .Include(o => o.MonedaRecibeNavigation)
                 .ToListAsync();
         }
 
@@ -36,6 +38,8 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
             return await _context.Ofertas
                 .Where(o => o.IdUsuario == idUsuario)
                 .Include(o => o.IdUsuarioNavigation)
+                .Include(o => o.MonedaEntregaNavigation)
+                .Include(o => o.MonedaRecibeNavigation)
                 .ToListAsync();
         }
 
@@ -44,6 +48,8 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
         {
             return await _context.Ofertas
                 .Include(o => o.IdUsuarioNavigation)
+                .Include(o => o.MonedaEntregaNavigation)
+                .Include(o => o.MonedaRecibeNavigation)
                 .FirstOrDefaultAsync(o => o.IdOferta == idOferta);
         }
 

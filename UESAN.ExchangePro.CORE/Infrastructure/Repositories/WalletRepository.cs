@@ -18,14 +18,14 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
         public async Task<Wallets?> GetByUsuarioId(long idUsuario)
         {
             return await _context.Wallets
-                .Include(w => w.WalletSaldos) // VITAL: Carga la lista de saldos por moneda
+                .Include(w => w.WalletSaldos)
+                .Include(w => w.MovimientosWallet)
                 .FirstOrDefaultAsync(w => w.IdUsuario == idUsuario);
         }
 
         // Actualizar la Wallet (y sus saldos modificados)
         public async Task<bool> Update(Wallets wallet)
         {
-            _context.Wallets.Update(wallet);
             return await _context.SaveChangesAsync() > 0;
         }
 

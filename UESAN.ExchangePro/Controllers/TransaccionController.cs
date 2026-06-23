@@ -18,11 +18,13 @@ namespace UESAN.ExchangePro.API.Controllers
     {
         private readonly ITransaccionRepository _transRepo;
         private readonly IOfertaRepository _ofertaRepo;
+        private readonly INotificacionesRepository _notificacionesRepository;
 
-        public TransaccionController(ITransaccionRepository transRepo, IOfertaRepository ofertaRepo)
+        public TransaccionController(ITransaccionRepository transRepo, IOfertaRepository ofertaRepo, INotificacionesRepository notificacionesRepository)
         {
             _transRepo = transRepo;
             _ofertaRepo = ofertaRepo;
+            _notificacionesRepository = notificacionesRepository;
         }
 
         // POST: api/Transaccion
@@ -66,6 +68,17 @@ namespace UESAN.ExchangePro.API.Controllers
             try
             {
                 bool exito = await _transRepo.CrearTransaccion(transaccion, oferta);
+                if (!exito)
+                    return BadRequest("No se pudo iniciar la transacción.");
+
+                await _notificacionesRepository.Create(new Notificaciones
+                {
+                    IdUsuario = oferta.IdUsuario,
+                    Titulo = "Nueva transacción en tu oferta",
+                    Mensaje = $"Se ha iniciado la transacción {transaccion.Codigo} por {transaccion.MontoOperacion}.",
+                    Fecha = DateTime.UtcNow,
+                    Leido = false
+                });
                 return Ok(new { mensaje = "Transacción iniciada correctamente.", idTransaccion = transaccion.IdTransaccion });
             }
             catch (Exception ex)
@@ -93,7 +106,8 @@ namespace UESAN.ExchangePro.API.Controllers
                 MontoOperacion = t.MontoOperacion,
                 Estado = t.Estado,
                 FechaInicio = t.FechaInicio,
-                Codigo = t.Codigo
+                Codigo = t.Codigo,
+                RutaComprobante = t.RutaComprobante
             });
 
             return Ok(listaDTO);
@@ -112,7 +126,47 @@ namespace UESAN.ExchangePro.API.Controllers
             bool exito = await _transRepo.ActualizarEstado(dto.IdTransaccion, dto.NuevoEstado.ToUpper());
 
             if (exito)
-                return Ok(new { mensaje = $"La transacción ha cambiado a estado: {dto.NuevoEstado.ToUpper()}" });
+            {
+                var nuevoEstado = dto.NuevoEstado.ToUpper();
+                var transaccion = await _transRepo.GetById(dto.IdTransaccion);
+                if (transaccion != null)
+                {
+                    if (nuevoEstado == "PAGADO")
+                    {
+                        await _notificacionesRepository.Create(new Notificaciones
+                        {
+                            IdUsuario = transaccion.VendedorId,
+                            Titulo = "Transacción marcada como PAGADA",
+                            Mensaje = $"La transacción {transaccion.Codigo} fue marcada como PAGADA.",
+                            Fecha = DateTime.UtcNow,
+                            Leido = false
+                        });
+                    }
+
+                    if (nuevoEstado == "COMPLETADO")
+                    {
+                        await _notificacionesRepository.Create(new Notificaciones
+                        {
+                            IdUsuario = transaccion.CompradorId,
+                            Titulo = "Transacción completada",
+                            Mensaje = $"La transacción {transaccion.Codigo} se ha completado correctamente.",
+                            Fecha = DateTime.UtcNow,
+                            Leido = false
+                        });
+
+                        await _notificacionesRepository.Create(new Notificaciones
+                        {
+                            IdUsuario = transaccion.VendedorId,
+                            Titulo = "Transacción completada",
+                            Mensaje = $"La transacción {transaccion.Codigo} se ha completado correctamente.",
+                            Fecha = DateTime.UtcNow,
+                            Leido = false
+                        });
+                    }
+                }
+
+                return Ok(new { mensaje = $"La transacción ha cambiado a estado: {nuevoEstado}" });
+            }
 
             return BadRequest("No se pudo actualizar el estado. Verifica que la transacción exista.");
         }
@@ -129,10 +183,25 @@ namespace UESAN.ExchangePro.API.Controllers
 
             try
             {
+                var transaccion = await _transRepo.GetById(dto.IdTransaccion);
+                if (transaccion == null)
+                    return NotFound("Transacción no encontrada.");
+
                 bool exito = await _transRepo.LiberarFondos(dto.IdTransaccion, idVendedor);
 
                 if (exito)
+                {
+                    await _notificacionesRepository.Create(new Notificaciones
+                    {
+                        IdUsuario = transaccion.CompradorId,
+                        Titulo = "Fondos liberados",
+                        Mensaje = $"Los fondos de la transacción {transaccion.Codigo} han sido liberados por el vendedor.",
+                        Fecha = DateTime.UtcNow,
+                        Leido = false
+                    });
+
                     return Ok(new { mensaje = "¡Éxito! Fondos liberados y transacción completada." });
+                }
 
                 return BadRequest("No se pudo completar la operación.");
             }
@@ -157,7 +226,25 @@ namespace UESAN.ExchangePro.API.Controllers
                 bool exito = await _transRepo.CancelarTransaccion(id, idUsuario);
 
                 if (exito)
+                {
+                    var transaccionCancelada = await _transRepo.GetById(id);
+                    if (transaccionCancelada != null)
+                    {
+                        var destinatario = transaccionCancelada.CompradorId == idUsuario
+                            ? transaccionCancelada.VendedorId
+                            : transaccionCancelada.CompradorId;
+
+                        await _notificacionesRepository.Create(new Notificaciones
+                        {
+                            IdUsuario = destinatario,
+                            Titulo = "Transacción cancelada",
+                            Mensaje = $"La transacción {transaccionCancelada.Codigo} ha sido cancelada.",
+                            Fecha = DateTime.UtcNow,
+                            Leido = false
+                        });
+                    }
                     return Ok(new { mensaje = "Transacción cancelada. La oferta ha vuelto a estar ACTIVA en el mercado." });
+                }
 
                 return BadRequest("No se pudo cancelar la transacción.");
             }
@@ -188,12 +275,45 @@ namespace UESAN.ExchangePro.API.Controllers
                 return BadRequest("El vendedor no tiene datos de pago registrados en el sistema.");
 
             var metodoPagoNombre = transaccion.IdMetodoPagoNavigation?.Nombre ?? "Desconocido";
+            var oferta = transaccion.IdOfertaNavigation;
+            var monedaEntregaCode = oferta?.MonedaEntregaNavigation?.Codigo;
+            var monedaRecibeCode = oferta?.MonedaRecibeNavigation?.Codigo;
+            decimal tasaCambio = oferta?.TasaCambio ?? 0m;
+            // Calculamos montos: MontoOperacion/MontoADepositar -> en la moneda de entrega (lo que se deposita)
+            // y MontoRecibe -> en la moneda que recibe el vendedor (lo que vas a recibir)
+            decimal montoOperacion = transaccion.MontoOperacion ?? 0m;
+            decimal montoADepositar = montoOperacion; // por defecto, lo que se deposita es el monto de la operación en la moneda de entrega
+            decimal montoRecibe = montoOperacion; // por defecto igual cuando las monedas coinciden
 
-            // 3. Armamos la respuesta con los datos de tu tabla DatosPagoUsuario
+            if (tasaCambio > 0 && !string.IsNullOrEmpty(monedaEntregaCode) && !string.IsNullOrEmpty(monedaRecibeCode))
+            {
+                var e = monedaEntregaCode.ToUpper();
+                var r = monedaRecibeCode.ToUpper();
+                if (e == r)
+                {
+                    montoRecibe = montoOperacion;
+                }
+                else if (e == "PEN" && r == "USD")
+                {
+                    montoRecibe = Math.Round(montoOperacion / tasaCambio, 2);
+                }
+                else if (e == "USD" && r == "PEN")
+                {
+                    montoRecibe = Math.Round(montoOperacion * tasaCambio, 2);
+                }
+            }
+
             var instrucciones = new
             {
                 MetodoSeleccionado = metodoPagoNombre,
-                MontoADepositar = transaccion.MontoOperacion,
+                // Monto en la moneda de la operación (entrega) — cantidad exacta que debe depositarse
+                MontoOperacion = montoOperacion,
+                MontoADepositar = montoADepositar,
+                // Monto que vas a recibir en la moneda del vendedor
+                MontoRecibe = montoRecibe,
+                TasaCambio = tasaCambio,
+                MonedaEntregaCode = monedaEntregaCode,
+                MonedaRecibeCode = monedaRecibeCode,
                 DatosDelVendedor = new
                 {
                     Yape = datosVendedor.Yape,
@@ -201,7 +321,7 @@ namespace UESAN.ExchangePro.API.Controllers
                     NumeroCuenta = datosVendedor.NumeroCuenta,
                     CCI = datosVendedor.Cci
                 },
-                Mensaje = $"Por favor, transfiere exactamente {transaccion.MontoOperacion} usando {metodoPagoNombre}. Una vez transferido, marca la transacción como PAGADA."
+                Mensaje = $"Por favor, transfiere exactamente {montoADepositar} {monedaEntregaCode} usando {metodoPagoNombre}. Una vez transferido, marca la transacción como PAGADA."
             };
 
             return Ok(instrucciones);
@@ -246,13 +366,65 @@ namespace UESAN.ExchangePro.API.Controllers
                 bool exito = await _transRepo.MarcarComoPagado(id, idUsuario, rutaParaBD);
 
                 if (exito)
+                {
+                    var transaccionPagada = await _transRepo.GetById(id);
+                    if (transaccionPagada != null)
+                    {
+                        await _notificacionesRepository.Create(new Notificaciones
+                        {
+                            IdUsuario = transaccionPagada.VendedorId,
+                            Titulo = "Pago marcado como enviado",
+                            Mensaje = $"El comprador ha marcado la transacción {transaccionPagada.Codigo} como PAGADA y subió un comprobante.",
+                            Fecha = DateTime.UtcNow,
+                            Leido = false
+                        });
+                    }
                     return Ok(new { mensaje = "Comprobante subido y transacción marcada como PAGADA exitosamente.", ruta = rutaParaBD });
+                }
 
                 return BadRequest("No se pudo actualizar el estado de la transacción.");
             }
             catch (Exception ex)
             {
                 return BadRequest($"ERROR AL PROCESAR EL PAGO: {ex.Message}");
+            }
+        }
+
+        [HttpPost("pagar-con-wallet/{idTransaccion}")]
+        public async Task<IActionResult> PagarConWallet(long idTransaccion)
+        {
+            var idUsuarioClaim = User.FindFirst("IdUsuario")?.Value;
+            if (string.IsNullOrEmpty(idUsuarioClaim))
+                return Unauthorized("Usuario no identificado.");
+
+            long idUsuario = long.Parse(idUsuarioClaim);
+
+            try
+            {
+                bool exito = await _transRepo.PagarConWallet(idTransaccion, idUsuario);
+
+                if (exito)
+                {
+                    var transaccionWallet = await _transRepo.GetById(idTransaccion);
+                    if (transaccionWallet != null)
+                    {
+                        await _notificacionesRepository.Create(new Notificaciones
+                        {
+                            IdUsuario = transaccionWallet.VendedorId,
+                            Titulo = "Pago con wallet realizado",
+                            Mensaje = $"El comprador pagó con wallet la transacción {transaccionWallet.Codigo}.",
+                            Fecha = DateTime.UtcNow,
+                            Leido = false
+                        });
+                    }
+                    return Ok(new { mensaje = "Pago con wallet exitoso. Transacción completada." });
+                }
+
+                return BadRequest("No se pudo completar el pago con wallet.");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"ERROR AL PAGAR CON WALLET: {ex.Message}");
             }
         }
     }

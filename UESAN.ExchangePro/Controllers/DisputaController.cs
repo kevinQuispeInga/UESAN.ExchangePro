@@ -1,6 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using System;
+using System.Linq;
+using System.IO;
 using System.Threading.Tasks;
 using UESAN.ExchangePro.CORE.Core.DTOs;
 using UESAN.ExchangePro.CORE.Core.Entities;
@@ -14,10 +17,12 @@ namespace UESAN.ExchangePro.API.Controllers
     public class DisputaController : ControllerBase
     {
         private readonly IDisputaRepository _disputaRepo;
+        private readonly INotificacionesRepository _notificacionesRepository;
 
-        public DisputaController(IDisputaRepository disputaRepo)
+        public DisputaController(IDisputaRepository disputaRepo, INotificacionesRepository notificacionesRepository)
         {
             _disputaRepo = disputaRepo;
+            _notificacionesRepository = notificacionesRepository;
         }
 
         // =========================================================================
@@ -47,7 +52,18 @@ namespace UESAN.ExchangePro.API.Controllers
                 bool exito = await _disputaRepo.AbrirDisputa(nuevaDisputa);
 
                 if (exito)
-                    return Ok(new { mensaje = "Disputa abierta. La transacción ha sido CONGELADA en estado 'EN_DISPUTA' hasta que un administrador la revise." });
+                {
+                    await _notificacionesRepository.Create(new Notificaciones
+                    {
+                        IdUsuario = null,
+                        Titulo = "Nueva disputa abierta",
+                        Mensaje = $"El usuario {nuevaDisputa.UsuarioReporta} abrió una disputa para la transacción {nuevaDisputa.IdTransaccion}.",
+                        Fecha = DateTime.UtcNow,
+                        Leido = false
+                    });
+
+                    return Ok(new { mensaje = "Disputa abierta. La transacción ha sido CONGELADA en estado 'EN_DISPUTA' hasta que un administrador la revise.", idDisputa = nuevaDisputa.IdDisputa });
+                }
 
                 return BadRequest("No se pudo abrir la disputa. Verifica que la transacción sea válida.");
             }
@@ -58,12 +74,57 @@ namespace UESAN.ExchangePro.API.Controllers
         }
 
         // =========================================================================
-        // 2. GET: api/Disputa/pendientes
+        // 2. POST: api/Disputa/{idDisputa}/subir-evidencia
+        // =========================================================================
+        [HttpPost("{idDisputa}/subir-evidencia")]
+        public async Task<IActionResult> SubirEvidencia(long idDisputa, [FromForm] IFormFile archivo)
+        {
+            var idUsuario = long.Parse(User.FindFirst("IdUsuario")?.Value ?? "0");
+
+            var disputa = await _disputaRepo.GetById(idDisputa);
+            if (disputa == null)
+                return NotFound(new { mensaje = "Disputa no encontrada." });
+
+            if (disputa.UsuarioReporta != idUsuario)
+                return StatusCode(403, new { mensaje = "Solo el creador de la disputa puede subir evidencias." });
+
+            if (archivo == null || archivo.Length == 0)
+                return BadRequest(new { mensaje = "Debes seleccionar un archivo." });
+
+            var ext = Path.GetExtension(archivo.FileName).ToLower();
+            if (ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".pdf")
+                return BadRequest(new { mensaje = "Solo se permiten archivos JPG, PNG o PDF." });
+
+            if (archivo.Length > 10 * 1024 * 1024)
+                return BadRequest(new { mensaje = "El archivo no debe superar los 10 MB." });
+
+            string carpeta = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "evidencias");
+            if (!Directory.Exists(carpeta))
+                Directory.CreateDirectory(carpeta);
+
+            string nombre = $"disc_{idDisputa}_{Guid.NewGuid():N}{ext}";
+            string rutaFisica = Path.Combine(carpeta, nombre);
+            using (var stream = new FileStream(rutaFisica, FileMode.Create))
+            {
+                await archivo.CopyToAsync(stream);
+            }
+
+            var evidencia = new EvidenciasDisputa
+            {
+                IdDisputa = idDisputa,
+                Archivo = $"/evidencias/{nombre}"
+            };
+
+            await _disputaRepo.InsertEvidencia(evidencia);
+            return Ok(new { mensaje = "Evidencia subida correctamente.", ruta = evidencia.Archivo });
+        }
+
+        // =========================================================================
+        // 3. GET: api/Disputa/pendientes
         // =========================================================================
         [HttpGet("pendientes")]
         public async Task<IActionResult> ListarDisputasPendientes()
         {
-            // BARRERA DE SEGURIDAD: Solo el Rol 2 (Admin) puede ver la bandeja del VAR
             var rolClaim = User.FindFirst("Rol")?.Value;
             if (rolClaim != "2")
             {
@@ -73,7 +134,25 @@ namespace UESAN.ExchangePro.API.Controllers
             try
             {
                 var disputas = await _disputaRepo.GetDisputasPendientes();
-                return Ok(disputas);
+                
+                var dtos = disputas.Select(d => new DisputaResponseDTO
+                {
+                    IdDisputa = d.IdDisputa,
+                    IdTransaccion = d.IdTransaccion,
+                    UsuarioReporta = d.UsuarioReporta,
+                    UsuarioReportaNombre = d.UsuarioReportaNavigation?.NombreCompleto ?? "Usuario",
+                    Motivo = d.Motivo,
+                    Descripcion = d.Descripcion,
+                    Estado = d.Estado,
+                    FechaCreacion = d.FechaCreacion,
+                    Evidencias = d.EvidenciasDisputa.Select(e => e.Archivo ?? string.Empty).ToList(),
+                    TransaccionMonto = d.IdTransaccionNavigation?.MontoOperacion ?? 0,
+                    TransaccionEstado = d.IdTransaccionNavigation?.Estado ?? "DESCONOCIDO",
+                    CompradorNombre = d.IdTransaccionNavigation?.Comprador?.NombreCompleto ?? "Comprador",
+                    VendedorNombre = d.IdTransaccionNavigation?.Vendedor?.NombreCompleto ?? "Vendedor"
+                }).ToList();
+
+                return Ok(dtos);
             }
             catch (Exception ex)
             {
@@ -82,7 +161,7 @@ namespace UESAN.ExchangePro.API.Controllers
         }
 
         // =========================================================================
-        // 3. PUT: api/Disputa/resolver
+        // 4. PUT: api/Disputa/resolver
         // =========================================================================
         [HttpPut("resolver")]
         public async Task<IActionResult> ResolverDisputa([FromBody] ResolverDisputaDTO dto)
@@ -106,8 +185,21 @@ namespace UESAN.ExchangePro.API.Controllers
                 // Ejecutamos la lógica de resolución transaccional en la Base de Datos
                 bool exito = await _disputaRepo.ResolverDisputa(dto.IdDisputa, idAdmin, dto.Decision, dto.Observacion);
 
+                var disputa = await _disputaRepo.GetById(dto.IdDisputa);
+                if (disputa == null)
+                    return NotFound(new { mensaje = "Disputa no encontrada." });
+
                 if (exito)
                 {
+                    await _notificacionesRepository.Create(new Notificaciones
+                    {
+                        IdUsuario = disputa.UsuarioReporta,
+                        Titulo = "Disputa resuelta",
+                        Mensaje = $"Tu disputa #{dto.IdDisputa} fue resuelta: {dto.Decision}. {dto.Observacion}",
+                        Fecha = DateTime.UtcNow,
+                        Leido = false
+                    });
+
                     string msjExtra = dto.Decision.ToUpper() == "A_FAVOR_COMPRADOR"
                         ? "Fondos liberados a la Wallet del comprador."
                         : "Transacción anulada y stock de la oferta devuelto al mercado P2P.";

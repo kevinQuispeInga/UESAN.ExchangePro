@@ -66,7 +66,7 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
         // 4. Obtener una transacción específica por su ID
         // (Nota: Si tu ITransaccionRepository.cs tiene definido este método con 'int', 
         // cambia este 'long' por 'int' para que coincidan perfectamente).
-        public async Task<Transacciones?> GetById(int idTransaccion) // <--- ¡AQUÍ ESTÁ EL CAMBIO!
+        public async Task<Transacciones?> GetById(long idTransaccion)
         {
             return await _context.Transacciones.FindAsync(idTransaccion);
         }
@@ -184,7 +184,11 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
         public async Task<Transacciones?> GetTransaccionConMetodoPago(long idTransaccion)
         {
             return await _context.Transacciones
-                .Include(t => t.IdMetodoPagoNavigation) // Traemos la tabla de Datos de Pago
+                .Include(t => t.IdMetodoPagoNavigation)
+                .Include(t => t.IdOfertaNavigation)
+                    .ThenInclude(o => o.MonedaEntregaNavigation)
+                .Include(t => t.IdOfertaNavigation)
+                    .ThenInclude(o => o.MonedaRecibeNavigation)
                 .FirstOrDefaultAsync(t => t.IdTransaccion == idTransaccion);
         }
         // 8. Obtener los datos de pago reales del vendedor
@@ -211,6 +215,97 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
             await _context.SaveChangesAsync();
 
             return true;
+        }
+
+        public async Task<bool> PagarConWallet(long idTransaccion, long idComprador)
+        {
+            using var dbTransaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var transaccion = await _context.Transacciones.FindAsync(idTransaccion);
+                if (transaccion == null) throw new Exception("Transacción no encontrada.");
+                if (transaccion.CompradorId != idComprador) throw new Exception("Solo el comprador puede pagar con wallet.");
+                if (transaccion.Estado != "PENDIENTE") throw new Exception("La transacción no está en estado PENDIENTE.");
+                if (transaccion.IdMetodoPago != 4) throw new Exception("Esta transacción no usa Wallet Interna como método de pago.");
+
+                var oferta = await _context.Ofertas.FindAsync(transaccion.IdOferta);
+                if (oferta == null) throw new Exception("Oferta original no encontrada.");
+
+                decimal montoOp = transaccion.MontoOperacion ?? 0;
+                int idMoneda = oferta.MonedaEntrega;
+
+                var walletComprador = await _context.Wallets
+                    .Include(w => w.WalletSaldos)
+                    .FirstOrDefaultAsync(w => w.IdUsuario == idComprador);
+                if (walletComprador == null) throw new Exception("El comprador no tiene billetera.");
+
+                var walletVendedor = await _context.Wallets
+                    .Include(w => w.WalletSaldos)
+                    .FirstOrDefaultAsync(w => w.IdUsuario == transaccion.VendedorId);
+                if (walletVendedor == null) throw new Exception("El vendedor no tiene billetera.");
+
+                var saldoComprador = walletComprador.WalletSaldos
+                    .FirstOrDefault(s => s.IdMoneda == idMoneda);
+                if (saldoComprador == null || saldoComprador.SaldoDisponible < montoOp)
+                    throw new Exception("Saldo disponible insuficiente en la billetera.");
+
+                saldoComprador.SaldoDisponible -= montoOp;
+
+                var saldoVendedor = walletVendedor.WalletSaldos
+                    .FirstOrDefault(s => s.IdMoneda == idMoneda);
+                if (saldoVendedor == null)
+                {
+                    saldoVendedor = new WalletSaldos
+                    { IdMoneda = idMoneda, SaldoDisponible = 0, SaldoRetenido = 0 };
+                    walletVendedor.WalletSaldos.Add(saldoVendedor);
+                }
+                saldoVendedor.SaldoDisponible += montoOp;
+
+                var movComprador = new MovimientosWallet
+                {
+                    IdWallet = walletComprador.IdWallet,
+                    IdMoneda = idMoneda,
+                    TipoOperacion = "TRANSFERENCIA_SALIDA",
+                    Monto = montoOp,
+                    Resultado = "EXITOSO",
+                    ReferenciaTipo = "TRANSACCION",
+                    ReferenciaId = idTransaccion,
+                    FechaMovimiento = DateTime.UtcNow
+                };
+                _context.MovimientosWallet.Add(movComprador);
+
+                var movVendedor = new MovimientosWallet
+                {
+                    IdWallet = walletVendedor.IdWallet,
+                    IdMoneda = idMoneda,
+                    TipoOperacion = "TRANSFERENCIA_ENTRADA",
+                    Monto = montoOp,
+                    Resultado = "EXITOSO",
+                    ReferenciaTipo = "TRANSACCION",
+                    ReferenciaId = idTransaccion,
+                    FechaMovimiento = DateTime.UtcNow
+                };
+                _context.MovimientosWallet.Add(movVendedor);
+
+                transaccion.Estado = "COMPLETADO";
+                transaccion.FechaFin = DateTime.UtcNow;
+                oferta.Estado = "FINALIZADA";
+
+                _context.Transacciones.Update(transaccion);
+                _context.Ofertas.Update(oferta);
+                _context.Wallets.Update(walletComprador);
+                _context.Wallets.Update(walletVendedor);
+
+                await _context.SaveChangesAsync();
+                await dbTransaction.CommitAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await dbTransaction.RollbackAsync();
+                throw new Exception(ex.InnerException?.Message ?? ex.Message);
+            }
         }
     }
 }

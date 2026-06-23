@@ -27,6 +27,12 @@ public partial class Usuarios
 
     public DateTime? FechaRegistro { get; set; }
 
+    public string? ResetToken { get; set; }
+
+    public DateTime? ResetTokenExpiry { get; set; }
+
+    public string? FotoPerfil { get; set; }
+
     public virtual ICollection<DatosPagoUsuario> DatosPagoUsuario { get; set; } = new List<DatosPagoUsuario>();
 
     public virtual ICollection<Disputas> Disputas { get; set; } = new List<Disputas>();

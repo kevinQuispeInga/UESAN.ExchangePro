@@ -65,8 +65,13 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
         // =========================================================================
         public async Task<IEnumerable<Disputas>> GetDisputasPendientes()
         {
-            // Retornamos todas las disputas que el sistema marcó como ABIERTAS
             return await _context.Disputas
+                                 .Include(d => d.UsuarioReportaNavigation)
+                                 .Include(d => d.EvidenciasDisputa)
+                                 .Include(d => d.IdTransaccionNavigation)
+                                     .ThenInclude(t => t.Comprador)
+                                 .Include(d => d.IdTransaccionNavigation)
+                                     .ThenInclude(t => t.Vendedor)
                                  .Where(d => d.Estado == "ABIERTA")
                                  .ToListAsync();
         }
@@ -152,6 +157,17 @@ namespace UESAN.ExchangePro.Infrastructure.Repositories
                 await dbTransaction.RollbackAsync();
                 throw new Exception(ex.InnerException?.Message ?? ex.Message);
             }
+        }
+
+        public async Task<Disputas?> GetById(long idDisputa)
+        {
+            return await _context.Disputas.FindAsync(idDisputa);
+        }
+
+        public async Task<bool> InsertEvidencia(EvidenciasDisputa evidencia)
+        {
+            await _context.EvidenciasDisputa.AddAsync(evidencia);
+            return await _context.SaveChangesAsync() > 0;
         }
     }
 }

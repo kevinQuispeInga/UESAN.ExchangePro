@@ -31,5 +31,21 @@ namespace UESAN.ExchangePro.CORE.Infrastructure.Repositories
             int rows = await _context.SaveChangesAsync();
             return rows > 0;
         }
+
+        public async Task<Usuarios?> GetById(long idUsuario)
+        {
+            return await _context.Usuarios.FirstOrDefaultAsync(u => u.IdUsuario == idUsuario);
+        }
+
+        public async Task<bool> Update(Usuarios usuario)
+        {
+            _context.Usuarios.Update(usuario);
+            return await _context.SaveChangesAsync() > 0;
+        }
+
+        public async Task<Usuarios?> GetByResetToken(string resetToken)
+        {
+            return await _context.Usuarios.FirstOrDefaultAsync(u => u.ResetToken == resetToken);
+        }
     }
 }

@@ -7,5 +7,7 @@ namespace UESAN.ExchangePro.CORE.Core.Interfaces
     {
         Task<bool> Registrar(RegistroDTO registroDTO);
         Task<string> Login(LoginDTO loginDTO);
+        Task<string?> SolicitarReset(SolicitarResetDTO dto);
+        Task<bool> RestablecerPassword(RestablecerPasswordDTO dto);
     }
 }

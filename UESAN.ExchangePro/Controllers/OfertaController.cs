@@ -101,7 +101,11 @@ namespace UESAN.ExchangePro.API.Controllers
                 MontoMinimo = o.MontoMinimo,
                 TasaCambio = o.TasaCambio,
                 TipoOperacion = o.TipoOperacion,
-                Estado = o.Estado
+                Estado = o.Estado,
+                MonedaEntrega = o.MonedaEntrega,
+                MonedaRecibe = o.MonedaRecibe,
+                MonedaEntregaCode = o.MonedaEntregaNavigation?.Codigo,
+                MonedaRecibeCode = o.MonedaRecibeNavigation?.Codigo
             });
 
             return Ok(listaDTO);
@@ -128,7 +132,11 @@ namespace UESAN.ExchangePro.API.Controllers
                 MontoMinimo = o.MontoMinimo,
                 TasaCambio = o.TasaCambio,
                 TipoOperacion = o.TipoOperacion,
-                Estado = o.Estado
+                Estado = o.Estado,
+                MonedaEntrega = o.MonedaEntrega,
+                MonedaRecibe = o.MonedaRecibe,
+                MonedaEntregaCode = o.MonedaEntregaNavigation?.Codigo,
+                MonedaRecibeCode = o.MonedaRecibeNavigation?.Codigo
             });
 
             return Ok(listaDTO);

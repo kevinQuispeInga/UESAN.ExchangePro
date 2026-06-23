@@ -6,6 +6,7 @@ using UESAN.ExchangePro.CORE.Core.Interfaces;
 using UESAN.ExchangePro.CORE.Core.Services;
 using UESAN.ExchangePro.CORE.Infrastructure.Data;
 using UESAN.ExchangePro.CORE.Infrastructure.Repositories;
+using UESAN.ExchangePro.CORE.Infrastructure.Services;
 using UESAN.ExchangePro.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,7 +37,14 @@ builder.Services.AddTransient<IOfertaRepository, OfertaRepository>();
 builder.Services.AddTransient<ITransaccionRepository, TransaccionRepository>();
 builder.Services.AddTransient<IDisputaRepository, DisputaRepository>();
 builder.Services.AddTransient<IFeedbackRepository, FeedbackRepository>();
+builder.Services.AddTransient<ICalificacionRepository, CalificacionRepository>();
+builder.Services.AddTransient<IMovimientoWalletRepository, MovimientoWalletRepository>();
+builder.Services.AddTransient<IRetiroRepository, RetiroRepository>();
 builder.Services.AddTransient<IAdminService, AdminService>();
+builder.Services.AddTransient<IEmailService, EmailService>();
+builder.Services.AddTransient<INotificacionesRepository, NotificacionesRepository>();
+builder.Services.AddHttpClient<ITipoCambioService, TipoCambioService>();
+builder.Services.AddMemoryCache();
 
 // 3. Configuración de Seguridad JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -69,13 +77,16 @@ if (app.Environment.IsDevelopment())
 //app.UseHttpsRedirection();
 
 // =========================================================================
-// CORREGIDO: ACTIVAR MIDDLEWARE DE CORS (Debe ir ANTES de Authentication)
+// CORREGIDO: ACTIVAR MIDDLEWARE DE RUTAS, CORS y AUTENTICACIÓN
 // =========================================================================
+app.UseRouting();
 app.UseCors("AllowQuasar");
 
 // MUY IMPORTANTE: UseAuthentication siempre debe ir ANTES de UseAuthorization
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseStaticFiles();
 
 app.MapControllers();
 

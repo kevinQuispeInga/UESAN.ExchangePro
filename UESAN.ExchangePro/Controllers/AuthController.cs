@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using UESAN.ExchangePro.CORE.Core.DTOs;
 using UESAN.ExchangePro.CORE.Core.Interfaces;
+using System;
 
 namespace UESAN.ExchangePro.API.Controllers
 {
@@ -49,6 +50,36 @@ namespace UESAN.ExchangePro.API.Controllers
             catch (Exception ex)
             {
                 return Unauthorized(new { error = ex.Message });
+            }
+        }
+
+        [HttpPost("solicitar-reset")]
+        public async Task<IActionResult> SolicitarReset([FromBody] SolicitarResetDTO dto)
+        {
+            try
+            {
+                await _authService.SolicitarReset(dto);
+                return Ok(new { mensaje = "Si el correo está registrado, recibirás un enlace de recuperación." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [HttpPost("restablecer-password")]
+        public async Task<IActionResult> RestablecerPassword([FromBody] RestablecerPasswordDTO dto)
+        {
+            try
+            {
+                bool exito = await _authService.RestablecerPassword(dto);
+                if (exito)
+                    return Ok(new { mensaje = "Contraseña restablecida correctamente." });
+                return BadRequest(new { error = "No se pudo restablecer la contraseña." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
             }
         }
     }
